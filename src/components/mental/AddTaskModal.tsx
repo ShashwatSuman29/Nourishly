@@ -1,54 +1,66 @@
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Task } from '@/types/task';
-import { Clock, Flag, CalendarIcon, RotateCw } from 'lucide-react';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
-import { useForm } from 'react-hook-form';
+import { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
+import { format } from 'date-fns';
+import { CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Calendar } from '@/components/ui/calendar';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-
-export type TaskPriority = 'low' | 'medium' | 'high';
-export type TaskCategory = 'mental' | 'educational' | 'fun';
-export type RecurringOption = 'daily' | 'weekly' | 'monthly' | 'none';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import type { Task } from '@/contexts/TaskContext';
 
 const formSchema = z.object({
-  name: z.string().min(3, {
-    message: "Task name must be at least 3 characters.",
-  }),
-  category: z.enum(['mental', 'educational', 'fun']),
+  name: z.string().min(1, 'Task name is required'),
   description: z.string().optional(),
-  timeAllocation: z.number().min(0).optional(),
+  category: z.enum(['mental', 'physical', 'educational', 'fun']),
   priority: z.enum(['low', 'medium', 'high']),
+  timeAllocation: z.string()
+    .min(1, 'Time allocation is required')
+    .refine((val) => !isNaN(parseInt(val, 10)), {
+      message: 'Time allocation must be a valid number'
+    }),
   dueDate: z.date().optional(),
   recurring: z.enum(['none', 'daily', 'weekly', 'monthly']),
 });
 
-interface AddTaskModalProps {
+type FormValues = z.infer<typeof formSchema>;
+
+export interface AddTaskModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddTask: (task: Task) => void;
-  editingTask: Task | null;
+  onAddTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  editingTask?: Task | null;
+  defaultCategory?: Task['category'];
 }
 
 const AddTaskModal = ({
@@ -56,237 +68,176 @@ const AddTaskModal = ({
   onOpenChange,
   onAddTask,
   editingTask,
+  defaultCategory,
 }: AddTaskModalProps) => {
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: editingTask
-      ? {
-          name: editingTask.name,
-          category: editingTask.category,
-          description: editingTask.description || '',
-          timeAllocation: editingTask.timeAllocation || 0,
-          priority: editingTask.priority,
-          dueDate: editingTask.dueDate,
-          recurring: editingTask.recurring,
-        }
-      : {
-          name: '',
-          category: 'mental',
-          description: '',
-          timeAllocation: 30,
-          priority: 'medium',
-          recurring: 'none',
-        },
+    defaultValues: {
+      name: '',
+      description: '',
+      category: defaultCategory || 'mental',
+      priority: 'medium',
+      timeAllocation: '',
+      recurring: 'none',
+    },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    const task: Task = {
-      id: editingTask?.id || crypto.randomUUID(),
+  useEffect(() => {
+    if (editingTask) {
+      form.reset({
+        name: editingTask.name,
+        description: editingTask.description || '',
+        category: editingTask.category,
+        priority: editingTask.priority,
+        timeAllocation: editingTask.timeAllocation?.toString() || '',
+        dueDate: editingTask.dueDate ? new Date(editingTask.dueDate) : undefined,
+        recurring: editingTask.recurring,
+      });
+    } else {
+      form.reset({
+        name: '',
+        description: '',
+        category: defaultCategory || 'mental',
+        priority: 'medium',
+        timeAllocation: '',
+        recurring: 'none',
+      });
+    }
+  }, [editingTask, form, defaultCategory]);
+
+  const onSubmit = (values: FormValues) => {
+    const task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
       name: values.name,
+      description: values.description || undefined,
       category: values.category,
-      description: values.description,
-      timeAllocation: values.timeAllocation,
       priority: values.priority,
+      timeAllocation: parseInt(values.timeAllocation, 10),
       dueDate: values.dueDate,
       recurring: values.recurring,
-      completed: editingTask?.completed || false,
-      createdAt: editingTask?.createdAt || new Date(),
+      completed: false,
     };
-    
     onAddTask(task);
     onOpenChange(false);
     form.reset();
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>{editingTask ? 'Edit Task' : 'Add New Task'}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="sm:max-w-[400px] max-h-[90vh] overflow-y-auto p-4 gap-2">
+        <DialogHeader className="space-y-1 pb-2">
+          <DialogTitle className="text-lg">{editingTask ? 'Edit Task' : 'Add New Task'}</DialogTitle>
+          <DialogDescription className="text-sm">
             Fill in the details below to {editingTask ? 'update your' : 'create a new'} task.
           </DialogDescription>
         </DialogHeader>
-        
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Task Name</FormLabel>
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-sm">Task Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ex: Read 5 pages of a book" {...field} />
+                    <Input className="h-8" placeholder="Enter task name" {...field} />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs" />
                 </FormItem>
               )}
             />
-            
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="mental">Mental</SelectItem>
-                      <SelectItem value="educational">Educational</SelectItem>
-                      <SelectItem value="fun">Fun</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
             <FormField
               control={form.control}
               name="description"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description (Optional)</FormLabel>
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-sm">Description (Optional)</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Add notes about your task"
-                      className="resize-none"
-                      {...field} 
+                    <Textarea
+                      placeholder="Enter task description"
+                      className="resize-none h-16 text-sm"
+                      {...field}
                     />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs" />
                 </FormItem>
               )}
             />
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <FormField
                 control={form.control}
-                name="timeAllocation"
+                name="category"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Time Allocation (minutes)</FormLabel>
-                    <FormControl>
-                      <div className="flex items-center">
-                        <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                          type="number" 
-                          min={0}
-                          {...field}
-                          onChange={e => field.onChange(Number(e.target.value))}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-sm">Category</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="h-8">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="mental">Mental Wellness</SelectItem>
+                        <SelectItem value="physical">Physical Wellness</SelectItem>
+                        <SelectItem value="educational">Educational</SelectItem>
+                        <SelectItem value="fun">Fun</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
-              
               <FormField
                 control={form.control}
                 name="priority"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Priority</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-sm">Priority</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-8">
                           <SelectValue placeholder="Select priority" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="low">
-                          <div className="flex items-center">
-                            <div className="w-3 h-3 rounded-full bg-green-500 mr-2" />
-                            Low
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="medium">
-                          <div className="flex items-center">
-                            <div className="w-3 h-3 rounded-full bg-yellow-500 mr-2" />
-                            Medium
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="high">
-                          <div className="flex items-center">
-                            <div className="w-3 h-3 rounded-full bg-red-500 mr-2" />
-                            High
-                          </div>
-                        </SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <FormField
                 control={form.control}
-                name="dueDate"
+                name="timeAllocation"
                 render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Due Date (Optional)</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                          className="p-3 pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-sm">Time (minutes)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="e.g., 30"
+                        className="h-8"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
-              
               <FormField
                 control={form.control}
                 name="recurring"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Recurring</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-sm">Recurring</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select recurring option" />
+                        <SelectTrigger className="h-8">
+                          <SelectValue placeholder="Select option" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -296,24 +247,54 @@ const AddTaskModal = ({
                         <SelectItem value="monthly">Monthly</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
             </div>
-            
-            <DialogFooter>
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => {
-                  onOpenChange(false);
-                  form.reset();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button type="submit">
+            <FormField
+              control={form.control}
+              name="dueDate"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-sm">Due Date (Optional)</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            'w-full h-8 px-3 text-left font-normal text-sm',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, 'PPP')
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) =>
+                          date < new Date(new Date().setHours(0, 0, 0, 0))
+                        }
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage className="text-xs" />
+                </FormItem>
+              )}
+            />
+            <DialogFooter className="pt-2">
+              <Button type="submit" className="w-full h-8 text-sm">
                 {editingTask ? 'Update Task' : 'Add Task'}
               </Button>
             </DialogFooter>

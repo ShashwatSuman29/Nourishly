@@ -1,42 +1,38 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { signIn, signUp } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, UserPlus, Loader2, Eye, EyeOff, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
+import { LogIn, UserPlus, Loader2 } from 'lucide-react';
 
 interface AuthFormProps {
   mode: 'signin' | 'signup';
-  onClose?: () => void;
 }
 
-export const AuthForm = ({ mode, onClose }: AuthFormProps) => {
+export const AuthForm = ({ mode }: AuthFormProps) => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
     try {
       if (mode === 'signup') {
         const { error } = await signUp(email, password);
         if (error) throw error;
-        toast.success('Please check your email for confirmation link');
-        onClose?.();
+        // Show success message for email confirmation
+        alert('Please check your email for confirmation link');
       } else {
         const { error } = await signIn(email, password);
         if (error) throw error;
-        navigate('/');
-        onClose?.();
+        navigate('/dashboard');
       }
     } catch (err: any) {
-      toast.error(err.message);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -44,128 +40,100 @@ export const AuthForm = ({ mode, onClose }: AuthFormProps) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-md w-full mx-auto"
     >
-      <motion.div
-        initial={{ y: 20 }}
-        animate={{ y: 0 }}
-        className="relative w-full max-w-md bg-gradient-to-br from-gray-900/95 to-gray-800/95 border border-gray-700/50 rounded-2xl shadow-2xl"
-      >
-        {/* Close button */}
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="absolute right-4 top-4 text-gray-400 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
+      <div className="bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50 rounded-xl p-6 shadow-xl">
+        <div className="flex items-center gap-2 mb-6">
+          <div className="p-2 rounded-lg bg-indigo-500/10">
+            {mode === 'signin' ? (
+              <LogIn className="w-5 h-5 text-indigo-400" />
+            ) : (
+              <UserPlus className="w-5 h-5 text-indigo-400" />
+            )}
+          </div>
+          <h2 className="text-xl font-semibold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+            {mode === 'signin' ? 'Sign In' : 'Create Account'}
+          </h2>
+        </div>
 
-        <div className="p-8">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-2 rounded-xl bg-primary/10">
-              {mode === 'signin' ? (
-                <LogIn className="w-5 h-5 text-primary" />
-              ) : (
-                <UserPlus className="w-5 h-5 text-primary" />
-              )}
-            </div>
-            <h2 className="text-2xl font-semibold bg-gradient-to-r from-primary to-primary/50 bg-clip-text text-transparent">
-              {mode === 'signin' ? 'Welcome Back' : 'Join Us'}
-            </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800/50 border border-gray-700/50 rounded-lg text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              placeholder="Enter your email"
+              required
+            />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">
-                Email
-              </label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                className="w-full bg-gray-800/50 border-gray-700/50 focus:border-primary/50 focus:ring-primary/20"
-                required
-                autoFocus
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-800/50 border border-gray-700/50 rounded-lg text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              placeholder="Enter your password"
+              required
+            />
+          </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">
-                Password
-              </label>
-              <div className="relative">
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  className="w-full bg-gray-800/50 border-gray-700/50 focus:border-primary/50 focus:ring-primary/20 pr-10"
-                  required
-                />
+          {error && (
+            <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg font-medium hover:from-indigo-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : mode === 'signin' ? (
+              'Sign In'
+            ) : (
+              'Create Account'
+            )}
+          </button>
+
+          <div className="text-center text-sm text-gray-400">
+            {mode === 'signin' ? (
+              <>
+                Don't have an account?{' '}
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                  onClick={() => navigate('/signup')}
+                  className="text-indigo-400 hover:text-indigo-300"
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
+                  Sign up
                 </button>
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white rounded-xl py-2.5 font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Processing...</span>
-                </div>
-              ) : mode === 'signin' ? (
-                'Sign In'
-              ) : (
-                'Create Account'
-              )}
-            </Button>
-
-            <div className="text-center text-sm text-gray-400">
-              {mode === 'signin' ? (
-                <>
-                  Don't have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/signup')}
-                    className="text-primary hover:text-primary/80 transition-colors"
-                  >
-                    Sign up
-                  </button>
-                </>
-              ) : (
-                <>
-                  Already have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => navigate('/signin')}
-                    className="text-primary hover:text-primary/80 transition-colors"
-                  >
-                    Sign in
-                  </button>
-                </>
-              )}
-            </div>
-          </form>
-        </div>
-      </motion.div>
+              </>
+            ) : (
+              <>
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate('/signin')}
+                  className="text-indigo-400 hover:text-indigo-300"
+                >
+                  Sign in
+                </button>
+              </>
+            )}
+          </div>
+        </form>
+      </div>
     </motion.div>
   );
 }; 

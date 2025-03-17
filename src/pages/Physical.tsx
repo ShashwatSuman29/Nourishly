@@ -5,6 +5,7 @@ import MacronutrientChart from '@/components/physical/MacronutrientChart';
 import TaskList from '@/components/shared/TaskList';
 import { Heart, ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import FoodImageAnalyzer from '@/components/physical/FoodImageAnalyzer';
 
 const Physical = () => {
   // In a real app, this would come from a state management system or API
@@ -73,35 +74,30 @@ const Physical = () => {
         </div>
       </div>
       
-      <div className="space-y-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <TaskList category="physical" initialTasks={initialTasks} />
-        </motion.div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+        className="space-y-8"
+      >
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Physical Wellness</h1>
+          <p className="text-muted-foreground">
+            Track your physical activities, nutrition, and wellness goals.
+          </p>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <CalorieTracker />
-        </motion.div>
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
-        >
-          <MacronutrientChart 
-            protein={75} 
-            carbs={200} 
-            fat={55} 
-          />
-        </motion.div>
-      </div>
+        <div className="grid gap-8 md:grid-cols-2">
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Food Analysis</h2>
+            <FoodImageAnalyzer />
+          </div>
+          
+          <div>
+            <TaskList category="physical" />
+          </div>
+        </div>
+      </motion.div>
     </PageTransition>
   );
 };

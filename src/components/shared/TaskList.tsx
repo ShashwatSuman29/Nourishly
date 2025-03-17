@@ -1,28 +1,24 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Plus } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AddTaskModal from '../mental/AddTaskModal';
 import TaskItem from '../mental/TaskItem';
-import { Task, TaskCategory } from '@/types/task';
+import { useTask } from '@/contexts/TaskContext';
+import type { Task } from '@/contexts/TaskContext';
 
 interface TaskListProps {
-  category: TaskCategory;
-  initialTasks?: Task[];
+  category: Task['category'];
 }
 
-const TaskList = ({ category, initialTasks = [] }: TaskListProps) => {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+const TaskList = ({ category }: TaskListProps) => {
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const { tasks, isLoading, addTask, updateTask, deleteTask, toggleTaskComplete } = useTask();
 
-  const handleAddTask = (task: Task) => {
-    if (editingTask) {
-      setTasks(tasks.map(t => t.id === task.id ? task : t));
-      setEditingTask(null);
-    } else {
-      setTasks([...tasks, { ...task, category }]);
-    }
+  const handleAddTask = async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+    await addTask(task);
+    setEditingTask(null);
   };
 
   const handleEditTask = (task: Task) => {
@@ -30,22 +26,16 @@ const TaskList = ({ category, initialTasks = [] }: TaskListProps) => {
     setIsAddTaskModalOpen(true);
   };
 
-  const handleDeleteTask = (id: string) => {
-    setTasks(tasks.filter(task => task.id !== id));
+  const handleDeleteTask = async (id: string) => {
+    await deleteTask(id);
   };
 
-  const handleToggleComplete = (id: string, completed: boolean) => {
-    setTasks(tasks.map(task => 
-      task.id === id ? { ...task, completed } : task
-    ));
+  const handleToggleComplete = async (id: string, completed: boolean) => {
+    await toggleTaskComplete(id, completed);
   };
 
-  const completedTasks = tasks.filter(task => task.completed);
-  const incompleteTasks = tasks.filter(task => !task.completed);
-  
-  const getTasksByCategory = () => {
-    return incompleteTasks.filter(task => task.category === category);
-  };
+  const completedTasks = tasks.filter(task => task.completed && task.category === category);
+  const incompleteTasks = tasks.filter(task => !task.completed && task.category === category);
 
   const categoryTitles = {
     mental: 'Mental Wellness Tasks',
@@ -53,6 +43,14 @@ const TaskList = ({ category, initialTasks = [] }: TaskListProps) => {
     educational: 'Educational Tasks',
     fun: 'Fun Activities'
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 bg-white border rounded-xl p-6">
@@ -71,24 +69,28 @@ const TaskList = ({ category, initialTasks = [] }: TaskListProps) => {
       <div>
         <h3 className="text-lg font-medium mb-2">{categoryTitles[category]}</h3>
         <div className="space-y-1">
-          {getTasksByCategory().length === 0 ? (
+          {incompleteTasks.length === 0 ? (
             <p className="text-muted-foreground text-sm py-2">No {category} tasks. Add some!</p>
           ) : (
-            getTasksByCategory().map((task) => (
-              <motion.div
-                key={task.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <TaskItem
-                  task={task}
-                  onEdit={handleEditTask}
-                  onDelete={handleDeleteTask}
-                  onToggleComplete={handleToggleComplete}
-                />
-              </motion.div>
-            ))
+            <AnimatePresence mode="popLayout">
+              {incompleteTasks.map((task) => (
+                <motion.div
+                  key={task.id}
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <TaskItem
+                    task={task}
+                    onEdit={handleEditTask}
+                    onDelete={handleDeleteTask}
+                    onToggleComplete={handleToggleComplete}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           )}
         </div>
       </div>
@@ -98,21 +100,25 @@ const TaskList = ({ category, initialTasks = [] }: TaskListProps) => {
         <div>
           <h3 className="text-lg font-medium mb-2">Completed Tasks</h3>
           <div className="space-y-1">
-            {completedTasks.map((task) => (
-              <motion.div
-                key={task.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <TaskItem
-                  task={task}
-                  onEdit={handleEditTask}
-                  onDelete={handleDeleteTask}
-                  onToggleComplete={handleToggleComplete}
-                />
-              </motion.div>
-            ))}
+            <AnimatePresence mode="popLayout">
+              {completedTasks.map((task) => (
+                <motion.div
+                  key={task.id}
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <TaskItem
+                    task={task}
+                    onEdit={handleEditTask}
+                    onDelete={handleDeleteTask}
+                    onToggleComplete={handleToggleComplete}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
         </div>
       )}
@@ -122,6 +128,7 @@ const TaskList = ({ category, initialTasks = [] }: TaskListProps) => {
         onOpenChange={setIsAddTaskModalOpen}
         onAddTask={handleAddTask}
         editingTask={editingTask}
+        defaultCategory={category}
       />
     </div>
   );

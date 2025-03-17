@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { AuthProvider } from '@/contexts/AuthContext';
+import { TaskProvider } from '@/contexts/TaskContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { SignIn } from '@/pages/SignIn';
 import { SignUp } from '@/pages/SignUp';
@@ -87,12 +88,14 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <Router>
-          <div className="relative min-h-screen bg-background text-foreground">
-            <Navbar />
-            <AnimatedRoutes />
-          </div>
-        </Router>
+        <TaskProvider>
+          <Router>
+            <div className="relative min-h-screen bg-background text-foreground">
+              <Navbar />
+              <AnimatedRoutes />
+            </div>
+          </Router>
+        </TaskProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
