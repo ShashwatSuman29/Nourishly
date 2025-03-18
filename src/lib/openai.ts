@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 
 const openai = new OpenAI({
   apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  baseURL: 'https://api.openai.com/v1',
+  baseURL: import.meta.env.VITE_OPENAI_BASE_URL,
   dangerouslyAllowBrowser: true
 });
 
@@ -21,14 +21,14 @@ export interface FoodAnalysis {
 
 export async function analyzeFoodImage(imageUrl: string): Promise<FoodAnalysis> {
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`${import.meta.env.VITE_OPENAI_BASE_URL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: import.meta.env.VITE_OPENAI_MODEL,
         messages: [
           {
             role: "system",

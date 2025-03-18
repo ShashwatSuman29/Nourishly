@@ -17,6 +17,9 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recha
 
 const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD'];
 
+const MAX_FILE_SIZE = parseInt(import.meta.env.VITE_MAX_FILE_SIZE || '10485760', 10);
+const SUPPORTED_IMAGE_TYPES = import.meta.env.VITE_SUPPORTED_IMAGE_TYPES?.split(',') || ['.jpeg', '.jpg', '.png', '.webp'];
+
 const FoodImageAnalyzer = () => {
   const [image, setImage] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<FoodAnalysis | null>(null);
@@ -27,8 +30,8 @@ const FoodImageAnalyzer = () => {
     if (acceptedFiles.length === 0) return;
     
     const file = acceptedFiles[0];
-    if (file.size > 10 * 1024 * 1024) { // 10MB limit
-      toast.error('Image size must be less than 10MB');
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error(`Image size must be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
       return;
     }
 
@@ -40,7 +43,7 @@ const FoodImageAnalyzer = () => {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.webp']
+      'image/*': SUPPORTED_IMAGE_TYPES
     },
     maxFiles: 1
   });
@@ -142,7 +145,7 @@ const FoodImageAnalyzer = () => {
         ) : (
           <div className="text-gray-500">
             <p className="text-lg font-medium">Drop your image here or click to select</p>
-            <p className="text-sm">Supports JPG, PNG, WebP (max 10MB)</p>
+            <p className="text-sm">Supports {SUPPORTED_IMAGE_TYPES.join(', ')} (max {MAX_FILE_SIZE / (1024 * 1024)}MB)</p>
           </div>
         )}
       </div>
