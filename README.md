@@ -1,1 +1,1 @@
-
+Nourishly is a self care webapp which allowas users to track their daily routine goals (Physical , Mental and Educationals). It also calculate the daily Calories needed and also calculate the macronutreints present in food items given by users.
